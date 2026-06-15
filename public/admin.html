@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Admin — Sales Funnel AI</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0e14;color:#dce6ec;font-family:system-ui,sans-serif;padding:16px;max-width:1200px;margin:0 auto}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+header h1{font-size:16px;color:#6c63ff}
+header input{background:#070b10;border:1px solid #253545;border-radius:6px;padding:6px 10px;color:#dce6ec;font-size:12px;width:300px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.stat{background:#0f1620;border:1px solid #253545;border-radius:8px;padding:12px}
+.stat .l{font-size:10px;color:#6a8094;text-transform:uppercase}
+.stat .v{font-size:22px;font-weight:700;margin-top:2px}
+.stat .v.hot{color:#ff4757}
+.stat .v.warm{color:#f0b429}
+.stat .v.cold{color:#4dabf7}
+table{width:100%;border-collapse:collapse;font-size:12px;background:#0f1620;border-radius:8px;overflow:hidden}
+th{background:#1c2a3a;padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;color:#6a8094;letter-spacing:.5px}
+td{padding:6px 10px;border-bottom:1px solid #1c2a3a;font-size:11px}
+tr:hover{background:#151f2c}
+tr.caliente{background:rgba(255,71,87,.08)}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:9px;font-weight:600}
+.badge-hot{background:rgba(255,71,87,.2);color:#ff4757}
+.badge-warm{background:rgba(240,180,41,.2);color:#f0b429}
+.badge-cold{background:rgba(77,171,247,.2);color:#4dabf7}
+.btn{background:#1c2a3a;border:none;border-radius:4px;padding:4px 10px;color:#dce6ec;cursor:pointer;font-size:10px}
+.btn:hover{background:#253545}
+.btn-p{background:#6c63ff;color:#fff}
+.btn-p:hover{background:#5a52e0}
+
+/* MODAL */
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);align-items:center;justify-content:center;z-index:100;padding:16px}
+.modal.active{display:flex}
+.modal-card{background:#0f1620;border-radius:10px;padding:20px;width:92%;max-width:600px;max-height:80vh;overflow-y:auto;border:1px solid #253545}
+.modal-card h3{font-size:14px;margin-bottom:4px}
+.modal-card .meta{font-size:10px;color:#6a8094;margin-bottom:12px}
+.modal-card .msg{font-size:12px;padding:6px 10px;margin:4px 0;border-radius:6px;line-height:1.4}
+.modal-card .msg.user{background:rgba(108,99,255,.15);text-align:right}
+.modal-card .msg.bot{background:#1c2a3a}
+.modal-card textarea{width:100%;background:#070b10;border:1px solid #253545;border-radius:6px;padding:8px;color:#dce6ec;font-size:12px;resize:vertical;margin-top:8px;font-family:inherit}
+.modal-card .btn-row{display:flex;gap:6px;margin-top:8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🔥 Sales Funnel — Admin</h1>
+  <div>
+    <input type="password" id="adminKey" placeholder="Admin key" />
+    <button class="btn btn-p" onclick="connect()">Connect</button>
+  </div>
+</header>
+
+<div class="stats" id="stats">
+  <div class="stat"><div class="l">Total leads</div><div class="v" id="statTotal">0</div></div>
+  <div class="stat"><div class="l">Qualified</div><div class="v warm" id="statWarm">0</div></div>
+  <div class="stat"><div class="l">Hot</div><div class="v hot" id="statHot">0</div></div>
+  <div class="stat"><div class="l">With Email</div><div class="v cold" id="statEmail">0</div></div>
+</div>
+
+<table>
+  <thead>
+    <tr><th>Score</th><th>Name</th><th>Email</th><th>Phone</th><th>Product</th><th>Status</th><th>Messages</th><th>Last</th><th></th></tr>
+  </thead>
+  <tbody id="leadsBody"></tbody>
+</table>
+
+<div class="modal" id="leadModal">
+  <div class="modal-card">
+    <h3 id="modalName">—</h3>
+    <div class="meta" id="modalMeta">—</div>
+    <div id="modalMessages"></div>
+    <textarea id="replyInput" placeholder="Reply as assistant..." rows="2"></textarea>
+    <div class="btn-row">
+      <button class="btn btn-p" onclick="sendReply()">Send Reply</button>
+      <button class="btn" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = window.location.origin;
+let key = localStorage.getItem('admin_key') || '';
+let leads = [];
+
+if (key) { document.getElementById('adminKey').value = key; connect(); }
+
+function connect() {
+  key = document.getElementById('adminKey').value.trim();
+  if (!key) return;
+  localStorage.setItem('admin_key', key);
+  loadLeads();
+  setInterval(loadLeads, 10000);
+}
+
+async function loadLeads() {
+  try {
+    const resp = await fetch(API + '/api/admin/leads', {
+      headers: { 'Authorization': 'Bearer ' + key }
+    });
+    if (!resp.ok) return;
+    leads = await resp.json();
+    render();
+  } catch(e) {}
+}
+
+function render() {
+  const total = leads.length;
+  const warm = leads.filter(l => l.status === 'qualified').length;
+  const hot = leads.filter(l => l.status === 'hot').length;
+  const withEmail = leads.filter(l => l.email).length;
+
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statWarm').textContent = warm;
+  document.getElementById('statHot').textContent = hot;
+  document.getElementById('statEmail').textContent = withEmail;
+
+  const tbody = document.getElementById('leadsBody');
+  if (!leads.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#4a5a6a;padding:20px">No leads yet</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = leads.map(l => {
+    const statusClass = l.status === 'hot' ? 'caliente' : '';
+    const badgeClass = l.status === 'hot' ? 'badge-hot' : l.status === 'qualified' ? 'badge-warm' : 'badge-cold';
+    const badgeText = l.status === 'hot' ? '🔥 Hot' : l.status === 'qualified' ? 'Qualified' : 'New';
+    return `<tr class="${statusClass}">
+      <td><strong>${l.score}</strong></td>
+      <td>${l.name || '—'}</td>
+      <td>${l.email || '—'}</td>
+      <td>${l.phone || '—'}</td>
+      <td>${l.product || '—'}</td>
+      <td><span class="badge ${badgeClass}">${badgeText}</span></td>
+      <td>${l.messages || 0}</td>
+      <td>${l.lastMessage ? new Date(l.lastMessage).toLocaleString() : '—'}</td>
+      <td><button class="btn btn-p" onclick="viewLead('${l.id}')">Ver</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function viewLead(id) {
+  try {
+    const resp = await fetch(API + '/api/admin/leads/' + id, {
+      headers: { 'Authorization': 'Bearer ' + key }
+    });
+    const data = await resp.json();
+    const l = data.lead;
+    document.getElementById('modalName').textContent = l.name || 'Anonymous';
+    document.getElementById('modalMeta').textContent = `Email: ${l.email || '—'} · Phone: ${l.phone || '—'} · Score: ${l.score} · ${l.product || 'No product'} · ${l.status}`;
+
+    const msgs = document.getElementById('modalMessages');
+    msgs.innerHTML = (data.conversation || []).map(m =>
+      `<div class="msg ${m.role}">${m.content}</div>`
+    ).join('');
+
+    document.getElementById('replyInput').dataset.leadId = id;
+    document.getElementById('leadModal').classList.add('active');
+  } catch(e) {}
+}
+
+async function sendReply() {
+  const id = document.getElementById('replyInput').dataset.leadId;
+  const msg = document.getElementById('replyInput').value.trim();
+  if (!msg) return;
+  await fetch(API + '/api/admin/reply/' + id, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: msg }),
+  });
+  document.getElementById('replyInput').value = '';
+  viewLead(id);
+}
+
+function closeModal() { document.getElementById('leadModal').classList.remove('active'); }
+document.getElementById('leadModal').onclick = e => { if (e.target === e.currentTarget) closeModal(); };
+</script>
+</body>
+</html>
