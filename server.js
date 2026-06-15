@@ -83,7 +83,7 @@ const PRODUCTS = [
     name: 'Business Automation Scripts',
     type: 'digital',
     price: 47,
-    url: 'https://yourbrand.gumroad.com/l/business-automation-scripts',
+    url: 'https://sfsystemsai.gumroad.com/l/wjhkp',
     tags: ['automation', 'scraping', 'crm', 'analytics', 'webhooks'],
     description: 'Production-ready Node.js scripts: LinkedIn lead scraper, email automation, CRM integration, analytics dashboard, and more.',
     ideal_for: 'tech-savvy founders and agencies who want to automate their business operations',
