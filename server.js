@@ -1,13 +1,38 @@
 require('dotenv').config();
 const express = require('express');
-const Anthropic = require('@anthropic-ai/sdk').default;
 const { v4: uuid } = require('uuid');
 const crypto = require('crypto');
 
 const app = express();
 app.use(express.json());
 app.use(express.static('public'));
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, baseURL: process.env.ANTHROPIC_BASE_URL || undefined });
+
+const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+const ANTHROPIC_BASE = (process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com').replace(/\/+$/, '');
+
+async function callClaude(system, messages) {
+  const res = await fetch(ANTHROPIC_BASE + '/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_KEY,
+      'anthropic-version': '2023-06-01',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 600,
+      system,
+      messages,
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`${res.status} ${text}`);
+  }
+  const data = await res.json();
+  return data.content[0].text;
+}
 
 // ===================== PRODUCT CONFIGURATION =====================
 // Edit this array to change what the chatbot sells.
@@ -104,10 +129,7 @@ app.post('/api/chat', async (req, res) => {
   const history = conv.slice(-10).map(m => `${m.role}: ${m.content}`).join('\n');
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 600,
-      system: `You are a sharp AI sales assistant for Predictive Scale AI.
+    const systemPrompt = `You are a sharp AI sales assistant for Predictive Scale AI.
 
 YOUR GOAL:
 1. Understand what the visitor needs
@@ -128,11 +150,9 @@ HARD RULES:
 - Never be pushy. If they are not ready, offer a resource and ask for the email.
 - If you don't know something, say so and offer a human follow-up.
 - Respond in English.
-- No markdown, no emojis.`,
-      messages: [{ role: 'user', content: `History:\n${history}\n\nCustomer message: ${message}` }],
-    });
+- No markdown, no emojis.`;
 
-    const reply = response.content[0].text;
+    const reply = await callClaude(systemPrompt, [{ role: 'user', content: `History:\n${history}\n\nCustomer message: ${message}` }]);
     conv.push({ role: 'assistant', content: reply, time: new Date() });
 
     // Extract contact info and product interest
