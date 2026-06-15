@@ -7,7 +7,7 @@ const crypto = require('crypto');
 const app = express();
 app.use(express.json());
 app.use(express.static('public'));
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, baseURL: process.env.ANTHROPIC_BASE_URL || undefined });
 
 // ===================== PRODUCT CONFIGURATION =====================
 // Edit this array to change what the chatbot sells.
